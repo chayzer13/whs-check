@@ -342,7 +342,7 @@
         .col-action { width: 40px; }
 
         /* ===== Mobile (iPhone friendly) ===== */
-        @media (max-width: 768px) {
+        @media screen and (max-width: 768px) {
             body {
                 padding: 10px;
                 align-items: stretch;
@@ -445,7 +445,7 @@
             }
         }
 
-        @media (max-width: 430px) {
+        @media screen and (max-width: 430px) {
             .invoice-title {
                 font-size: 19px;
             }
@@ -780,6 +780,8 @@
                 allowTaint: false,
                 backgroundColor: '#f5f0ec',
                 logging: false,
+                windowWidth: 1280,
+                windowHeight: 900,
                 onclone: (doc) => {
                     // In file:// mode Safari often taints canvas due image origin rules.
                     // Rendering without <img> avoids SecurityError and keeps data editable.
