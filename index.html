@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>White Horse Stone — Товарный чек</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Roboto:wght@300;400;500;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: #f5f0ec;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        /* Два экземпляра накладной для печати */
+        .invoice-pair {
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+        .invoice-print-duplicate {
+            display: none;
+        }
+        @media print {
+            body { background: none !important; padding: 0 !important; }
+            .toolbar { display: none !important; }
+            .invoice-pair {
+                flex-direction: column;
+                gap: 0;
+                width: 210mm;
+                height: 297mm;
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            #invoice, .invoice-print-duplicate {
+                width: 100%;
+                max-width: 100%;
+                height: 50%;
+                min-height: 0;
+                box-shadow: none;
+                margin: 0;
+                page-break-inside: avoid;
+                transform: none;
+                position: relative;
+            }
+            .invoice-print-duplicate { display: block !important; }
+        }
+        /* ===== TOOLBAR ===== */
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .toolbar button {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Roboto', sans-serif;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #8B6914;
+            color: #fff;
+        }
+        .btn-primary:hover { background: #a07a1a; }
+
+        .btn-secondary {
+            background: #fff;
+            color: #5a4a2a;
+            border: 2px solid #c4a96a !important;
+        }
+        .btn-secondary:hover { background: #f5efe5; }
+
+        .btn-danger {
+            background: #c0392b;
+            color: #fff;
+        }
+        .btn-danger:hover { background: #e74c3c; }
+
+        /* ===== INVOICE ===== */
+        #invoice {
+            width: 1000px;
+            max-width: 100%;
+            background: #f5f0ec;
+            padding: 50px 60px 40px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Watermark corners */
+        .watermark {
+            position: absolute;
+            opacity: 0.06;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .watermark.bottom-right {
+            bottom: 20px;
+            right: 20px;
+            width: 220px;
+            height: 220px;
+            opacity: 0.07;
+        }
+
+        /* Logo area */
+        .logo-section {
+            text-align: center;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .logo-img {
+            width: 260px;
+            height: auto;
+        }
+
+        /* Header */
+        .invoice-header {
+            text-align: center;
+            margin: 24px 0 8px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .invoice-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 26px;
+            font-weight: 700;
+            color: #3a3024;
+        }
+
+        .invoice-date {
+            font-size: 16px;
+            color: #6a5a44;
+            margin-top: 4px;
+        }
+
+        /* Editable fields */
+        .editable {
+            cursor: text;
+            border-bottom: 1px dashed transparent;
+            transition: border-color 0.2s;
+            outline: none;
+            min-width: 20px;
+            display: inline-block;
+        }
+        .editable:hover {
+            border-bottom-color: #c4a96a;
+        }
+        .editable:focus {
+            border-bottom-color: #8B6914;
+            background: rgba(196, 169, 106, 0.08);
+        }
+        .editable[contenteditable="true"] {
+            font-size: 16px;
+        }
+
+        @media print {
+            .editable { border-bottom-color: transparent !important; background: none !important; }
+        }
+
+        /* Table */
+        .invoice-table-wrap {
+            margin: 28px 0 0;
+            position: relative;
+            z-index: 1;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 760px;
+        }
+
+        thead th {
+            background: linear-gradient(180deg, #8B6914 0%, #a07a1a 100%);
+            color: #fff;
+            font-weight: 500;
+            font-size: 14px;
+            padding: 12px 10px;
+            text-align: center;
+            letter-spacing: 0.3px;
+        }
+
+        thead th:first-child { border-radius: 6px 0 0 0; }
+        thead th:last-child { border-radius: 0 6px 0 0; }
+
+        tbody td {
+            padding: 10px 10px;
+            text-align: center;
+            font-size: 14px;
+            color: #3a3024;
+            border-bottom: 1px solid #d9cdb8;
+            background: rgba(255,255,255,0.35);
+        }
+
+        tbody tr:hover td {
+            background: rgba(196, 169, 106, 0.1);
+        }
+
+        tbody td:nth-child(2) {
+            text-align: left;
+            padding-left: 16px;
+        }
+
+        tbody td .editable {
+            width: 100%;
+        }
+
+        tbody td.num-cell .editable,
+        tbody td.price-cell .editable {
+            text-align: center;
+        }
+
+        /* Delete row button */
+        .delete-row-btn {
+            background: none;
+            border: none;
+            color: #c0392b;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        tbody tr:hover .delete-row-btn {
+            opacity: 1;
+        }
+        .delete-row-btn:hover {
+            background: rgba(192, 57, 43, 0.1);
+        }
+
+        @media print {
+            .delete-row-btn { display: none !important; }
+            .col-action { display: none !important; }
+        }
+
+        /* Total */
+        .total-row {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            margin-top: 0;
+            padding: 14px 10px;
+            background: rgba(255,255,255,0.35);
+            border-bottom: 2px solid #8B6914;
+            position: relative;
+            z-index: 1;
+        }
+
+        .total-label {
+            font-weight: 700;
+            font-size: 18px;
+            color: #3a3024;
+            margin-right: 20px;
+        }
+
+        .total-value {
+            font-weight: 700;
+            font-size: 22px;
+            color: #8B6914;
+            min-width: 150px;
+            text-align: right;
+        }
+
+        /* Warranty */
+        .warranty {
+            margin-top: 28px;
+            padding: 16px 20px;
+            background: rgba(196, 169, 106, 0.08);
+            border-left: 3px solid #c4a96a;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #6a5a44;
+            font-style: italic;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Signatures */
+        .signatures {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 50px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .signature-block {
+            text-align: center;
+            width: 240px;
+        }
+
+        .signature-line {
+            border-top: 1px solid #6a5a44;
+            margin-bottom: 8px;
+        }
+
+        .signature-label {
+            font-size: 15px;
+            color: #6a5a44;
+            font-weight: 500;
+        }
+
+        /* Print styles */
+        @media print {
+            body { background: none; padding: 0; }
+            .toolbar { display: none !important; }
+            #invoice { box-shadow: none; width: 100%; padding: 30px 40px; }
+        }
+
+        /* Column widths */
+        .col-num { width: 50px; }
+        .col-name { width: auto; }
+        .col-unit { width: 70px; }
+        .col-qty { width: 80px; }
+        .col-price { width: 110px; }
+        .col-sum { width: 130px; }
+        .col-action { width: 40px; }
+
+        /* ===== Mobile (iPhone friendly) ===== */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+                align-items: stretch;
+            }
+
+            .toolbar {
+                position: sticky;
+                top: 8px;
+                z-index: 20;
+                background: rgba(245, 240, 236, 0.95);
+                backdrop-filter: blur(4px);
+                padding: 8px;
+                border-radius: 10px;
+                margin-bottom: 14px;
+            }
+
+            .toolbar button {
+                flex: 1 1 100%;
+                justify-content: center;
+                min-height: 46px;
+                padding: 12px 14px;
+                font-size: 16px;
+            }
+
+            .invoice-pair {
+                width: 100%;
+                gap: 12px;
+            }
+
+            #invoice {
+                width: 100%;
+                padding: 18px 14px 20px;
+            }
+
+            .watermark.bottom-right {
+                width: 120px;
+                height: 120px;
+                right: 10px;
+                bottom: 10px;
+            }
+
+            .logo-img {
+                width: 190px;
+            }
+
+            .invoice-header {
+                margin: 14px 0 6px;
+            }
+
+            .invoice-title {
+                font-size: 21px;
+                line-height: 1.3;
+            }
+
+            .invoice-date {
+                font-size: 15px;
+            }
+
+            thead th,
+            tbody td {
+                font-size: 16px;
+            }
+
+            .delete-row-btn {
+                opacity: 1;
+                font-size: 20px;
+                min-width: 32px;
+                min-height: 32px;
+            }
+
+            .total-row {
+                padding: 12px 8px;
+            }
+
+            .total-label {
+                font-size: 16px;
+                margin-right: 12px;
+            }
+
+            .total-value {
+                font-size: 20px;
+                min-width: 120px;
+            }
+
+            .warranty {
+                margin-top: 20px;
+                padding: 12px 14px;
+                font-size: 13px;
+            }
+
+            .signatures {
+                margin-top: 28px;
+                gap: 20px;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .signature-block {
+                width: min(260px, 100%);
+            }
+        }
+
+        @media (max-width: 430px) {
+            .invoice-title {
+                font-size: 19px;
+            }
+
+            .toolbar button {
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- TOOLBAR -->
+<div class="toolbar" id="toolbar">
+    <button class="btn-primary" onclick="addRow()">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        Добавить позицию
+    </button>
+    <button class="btn-secondary" onclick="saveAsImage()">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Сохранить как фото
+    </button>
+    <button class="btn-secondary" onclick="printInvoice()">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Печать
+    </button>
+</div>
+
+<!-- INVOICE -->
+<div class="invoice-pair">
+    <div id="invoice">
+
+    <!-- Watermarks -->
+    <div class="watermark bottom-right">
+        <img src="whs.png" alt="" style="width:100%;height:100%;object-fit:contain;">
+    </div>
+
+    <!-- Logo -->
+    <div class="logo-section">
+        <img src="whs.png" alt="White Horse Stone" class="logo-img">
+    </div>
+
+    <!-- Title -->
+    <div class="invoice-header">
+        <div class="invoice-title">
+            Товарный чек № <span class="editable" contenteditable="true" id="invoiceNumber">АМ-1</span>
+        </div>
+        <div class="invoice-date">
+            <span class="editable" contenteditable="true" id="invoiceDate">26 марта 2026 г.</span>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="invoice-table-wrap">
+        <table id="invoiceTable">
+            <thead>
+                <tr>
+                    <th class="col-num">№</th>
+                    <th class="col-name">Наименование</th>
+                    <th class="col-unit">Ед. изм.</th>
+                    <th class="col-qty">Кол-во</th>
+                    <th class="col-price">Цена</th>
+                    <th class="col-sum">Сумма</th>
+                    <th class="col-action"></th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <tr>
+                    <td class="num-cell">1</td>
+                    <td><span class="editable" contenteditable="true">Брусчатка "Новый город - Мрамор" 6см</span></td>
+                    <td><span class="editable" contenteditable="true">м²</span></td>
+                    <td class="num-cell"><span class="editable qty" contenteditable="true" oninput="recalcRow(this)">150</span></td>
+                    <td class="price-cell"><span class="editable price" contenteditable="true" oninput="recalcRow(this)">1150</span></td>
+                    <td class="sum-cell">172 500 ₽</td>
+                    <td class="col-action"><button class="delete-row-btn" onclick="deleteRow(this)" title="Удалить строку">×</button></td>
+                </tr>
+                <tr>
+                    <td class="num-cell">2</td>
+                    <td><span class="editable" contenteditable="true">Бордюры 400/200/50 (Мрамор)</span></td>
+                    <td><span class="editable" contenteditable="true">шт</span></td>
+                    <td class="num-cell"><span class="editable qty" contenteditable="true" oninput="recalcRow(this)">0</span></td>
+                    <td class="price-cell"><span class="editable price" contenteditable="true" oninput="recalcRow(this)">160</span></td>
+                    <td class="sum-cell">0 ₽</td>
+                    <td class="col-action"><button class="delete-row-btn" onclick="deleteRow(this)" title="Удалить строку">×</button></td>
+                </tr>
+                <tr>
+                    <td class="num-cell">3</td>
+                    <td><span class="editable" contenteditable="true">Доставка манипулятором 5-тонник</span></td>
+                    <td><span class="editable" contenteditable="true">рейс</span></td>
+                    <td class="num-cell"><span class="editable qty" contenteditable="true" oninput="recalcRow(this)">3</span></td>
+                    <td class="price-cell"><span class="editable price" contenteditable="true" oninput="recalcRow(this)">10000</span></td>
+                    <td class="sum-cell">30 000 ₽</td>
+                    <td class="col-action"><button class="delete-row-btn" onclick="deleteRow(this)" title="Удалить строку">×</button></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Total -->
+    <div class="total-row">
+        <span class="total-label">ИТОГО:</span>
+        <span class="total-value" id="grandTotal">202 500,00 ₽</span>
+    </div>
+
+    <!-- Warranty -->
+    <div class="warranty">
+        Гарантия не распространяется на случаи, которые возникли вследствие нарушения правил эксплуатации. При эксплуатации тротуарной плитки не рекомендуется удалять лёд при помощи соли и агрессивных химических реагентов, т.к. они разрушительно действуют на лицевую поверхность и внутреннюю структуру элементов мощения, а также в значительной степени увеличивают вероятность потери цвета.
+    </div>
+
+    <!-- Signatures -->
+    <div class="signatures">
+        <div class="signature-block">
+            <div class="signature-line"></div>
+            <div class="signature-label">Продавец</div>
+        </div>
+        <div class="signature-block">
+            <div class="signature-line"></div>
+            <div class="signature-label">Заказчик</div>
+        </div>
+    </div>
+    <!-- Дубликат для печати -->
+    <div class="invoice-print-duplicate">
+        <!-- Watermarks -->
+        <div class="watermark bottom-right">
+            <img src="whs.png" alt="" style="width:100%;height:100%;object-fit:contain;">
+        </div>
+        <!-- Logo -->
+        <div class="logo-section">
+            <img src="whs.png" alt="White Horse Stone" class="logo-img">
+        </div>
+        <!-- Title -->
+        <div class="invoice-header">
+            <div class="invoice-title">
+                Товарный чек № <span class="editable" contenteditable="false" id="invoiceNumberCopy"></span>
+            </div>
+            <div class="invoice-date">
+                <span class="editable" contenteditable="false" id="invoiceDateCopy"></span>
+            </div>
+        </div>
+        <!-- Table -->
+        <div class="invoice-table-wrap">
+            <table id="invoiceTableCopy"></table>
+        </div>
+        <!-- Total -->
+        <div class="total-row">
+            <span class="total-label">ИТОГО:</span>
+            <span class="total-value" id="grandTotalCopy"></span>
+        </div>
+        <!-- Warranty -->
+        <div class="warranty">
+            Гарантия не распространяется на случаи, которые возникли вследствие нарушения правил эксплуатации. При эксплуатации тротуарной плитки не рекомендуется удалять лёд при помощи соли и агрессивных химических реагентов, т.к. они разрушительно действуют на лицевую поверхность и внутреннюю структуру элементов мощения, а также в значительной степени увеличивают вероятность потери цвета.
+        </div>
+        <!-- Signatures -->
+        <div class="signatures">
+            <div class="signature-block">
+                <div class="signature-line"></div>
+                <div class="signature-label">Продавец</div>
+            </div>
+            <div class="signature-block">
+                <div class="signature-line"></div>
+                <div class="signature-label">Заказчик</div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- html2canvas CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<script>
+    // Копирование данных в дубликат для печати
+    function copyInvoiceForPrint() {
+        // Копируем номер и дату
+        document.getElementById('invoiceNumberCopy').textContent = document.getElementById('invoiceNumber').textContent;
+        document.getElementById('invoiceDateCopy').textContent = document.getElementById('invoiceDate').textContent;
+        // Копируем таблицу
+        document.getElementById('invoiceTableCopy').innerHTML = document.getElementById('invoiceTable').innerHTML;
+        // Копируем итог
+        document.getElementById('grandTotalCopy').textContent = document.getElementById('grandTotal').textContent;
+    }
+    // Перед печатью копируем данные
+    window.onbeforeprint = copyInvoiceForPrint;
+</script>
+
+<script>
+    // ===== Format number with spaces =====
+    function formatNumber(num) {
+        return num.toLocaleString('ru-RU');
+    }
+
+    // ===== Parse number from string =====
+    function parseNum(str) {
+        const cleaned = String(str).replace(/[^\d.,\-]/g, '').replace(',', '.');
+        const val = parseFloat(cleaned);
+        return isNaN(val) ? 0 : val;
+    }
+
+    // ===== Recalculate a row and total =====
+    function recalcRow(el) {
+        const row = el.closest('tr');
+        const qty = parseNum(row.querySelector('.qty').textContent);
+        const price = parseNum(row.querySelector('.price').textContent);
+        const sum = qty * price;
+        row.querySelector('.sum-cell').textContent = formatNumber(sum) + ' ₽';
+        recalcTotal();
+    }
+
+    // ===== Recalculate grand total =====
+    function recalcTotal() {
+        const rows = document.querySelectorAll('#tableBody tr');
+        let total = 0;
+        rows.forEach(row => {
+            const qty = parseNum(row.querySelector('.qty').textContent);
+            const price = parseNum(row.querySelector('.price').textContent);
+            total += qty * price;
+        });
+        document.getElementById('grandTotal').textContent = formatNumber(total) + ',00 ₽';
+    }
+
+    // ===== Renumber rows =====
+    function renumberRows() {
+        const rows = document.querySelectorAll('#tableBody tr');
+        rows.forEach((row, i) => {
+            row.querySelector('.num-cell').textContent = i + 1;
+        });
+    }
+
+    // ===== Add new row =====
+    function addRow() {
+        const tbody = document.getElementById('tableBody');
+        const rowCount = tbody.rows.length + 1;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="num-cell">${rowCount}</td>
+            <td><span class="editable" contenteditable="true">Новая позиция</span></td>
+            <td><span class="editable" contenteditable="true">шт</span></td>
+            <td class="num-cell"><span class="editable qty" contenteditable="true" oninput="recalcRow(this)">0</span></td>
+            <td class="price-cell"><span class="editable price" contenteditable="true" oninput="recalcRow(this)">0</span></td>
+            <td class="sum-cell">0 ₽</td>
+            <td class="col-action"><button class="delete-row-btn" onclick="deleteRow(this)" title="Удалить строку">×</button></td>
+        `;
+        tbody.appendChild(tr);
+        // Focus on the name field
+        tr.querySelector('.editable').focus();
+    }
+
+    // ===== Delete row =====
+    function deleteRow(btn) {
+        const row = btn.closest('tr');
+        const tbody = row.parentElement;
+        if (tbody.rows.length <= 1) {
+            alert('Нельзя удалить последнюю строку');
+            return;
+        }
+        row.remove();
+        renumberRows();
+        recalcTotal();
+    }
+
+    function isIOSSafari() {
+        const ua = navigator.userAgent || '';
+        const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+        return isIOS && isSafari;
+    }
+
+    async function canvasToBlob(canvas) {
+        return await new Promise((resolve, reject) => {
+            canvas.toBlob(blob => {
+                if (blob) resolve(blob);
+                else reject(new Error('Не удалось получить Blob из canvas'));
+            }, 'image/png');
+        });
+    }
+
+    async function shareOrDownloadCanvas(canvas, filename) {
+        const blob = await canvasToBlob(canvas);
+        const objectUrl = URL.createObjectURL(blob);
+
+        // Desktop/Android path
+        if (!isIOSSafari()) {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = objectUrl;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+            return;
+        }
+
+        // iPhone Safari: try native share first (best UX)
+        const file = new File([blob], filename, { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: filename });
+            URL.revokeObjectURL(objectUrl);
+            return;
+        }
+
+        // Fallback for older iOS: open image in new tab for manual save
+        const win = window.open(objectUrl, '_blank');
+        if (win) {
+            alert('Изображение открыто в новой вкладке. Нажмите и удерживайте картинку, затем выберите "Сохранить в Фото".');
+            setTimeout(() => URL.revokeObjectURL(objectUrl), 15000);
+            return;
+        }
+
+        // Last fallback when popups are blocked
+        window.location.href = objectUrl;
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 15000);
+    }
+
+    // ===== Save as image =====
+    async function saveAsImage() {
+        const toolbar = document.getElementById('toolbar');
+        const actions = document.querySelectorAll('.col-action, .delete-row-btn');
+        const editables = document.querySelectorAll('.editable');
+        const invoice = document.getElementById('invoice');
+        const num = document.getElementById('invoiceNumber').textContent.trim();
+        const filename = `Товарный_чек_${num || 'без_номера'}.png`;
+        const isFileProtocol = window.location.protocol === 'file:';
+
+        toolbar.style.display = 'none';
+        actions.forEach(el => el.style.display = 'none');
+        editables.forEach(el => el.contentEditable = 'false');
+
+        try {
+            const canvas = await html2canvas(invoice, {
+                scale: Math.min(window.devicePixelRatio || 2, 3),
+                useCORS: true,
+                allowTaint: false,
+                backgroundColor: '#f5f0ec',
+                logging: false,
+                onclone: (doc) => {
+                    // In file:// mode Safari often taints canvas due image origin rules.
+                    // Rendering without <img> avoids SecurityError and keeps data editable.
+                    if (isFileProtocol) {
+                        doc.querySelectorAll('img').forEach(img => img.remove());
+                    }
+                }
+            });
+            await shareOrDownloadCanvas(canvas, filename);
+        } catch (err) {
+            console.error('Ошибка сохранения изображения:', err);
+            if (isFileProtocol) {
+                alert('Браузер блокирует экспорт PNG в режиме file://. Откройте этот файл через локальный сервер (http://), и сохранение будет работать стабильно.');
+            } else {
+                alert('Не удалось сохранить изображение. Попробуйте ещё раз.');
+            }
+        } finally {
+            toolbar.style.display = 'flex';
+            actions.forEach(el => el.style.display = '');
+            editables.forEach(el => el.contentEditable = 'true');
+        }
+    }
+
+    // ===== Print =====
+    function printInvoice() {
+        // Hide action column for print
+        const style = document.createElement('style');
+        style.id = 'printHide';
+        style.textContent = '.col-action, .delete-row-btn { display: none !important; }';
+        document.head.appendChild(style);
+
+        window.print();
+
+        setTimeout(() => {
+            const s = document.getElementById('printHide');
+            if (s) s.remove();
+        }, 1000);
+    }
+</script>
+
+</body>
+</html>
